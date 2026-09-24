@@ -1011,6 +1011,8 @@ pref("intl.multilingual.liveReloadBidirectional", false);
 
 // if true, use full page zoom instead of text zoom
 pref("browser.zoom.full", true);
+// Zoom (in percent) that message bodies start at, when reading and composing.
+pref("mail.message.zoom_percent", 100);
 
 pref("toolkit.osKeyStore.loglevel", "Warn");
 

@@ -5685,6 +5685,7 @@ async function ComposeLoad() {
 
   UIDensity.registerWindow(window);
   UIFontSize.registerWindow(window);
+  ZoomManager.applyMessageZoom(getBrowser());
 }
 
 /**
