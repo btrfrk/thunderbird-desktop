@@ -107,6 +107,7 @@ window.addEventListener("DOMContentLoaded", event => {
   Services.obs.addObserver(msgObserver, "ipc:network:set-offline");
 
   const browser = getMessagePaneBrowser();
+  top.ZoomManager.applyMessageZoom(browser);
 
   if (parent == top) {
     // Standalone message display? Focus the message pane.
@@ -417,6 +418,7 @@ var preferenceObserver = {
     "mail.show_headers",
     "mail.addressDisplayFormat",
     "mail.dark-reader.enabled",
+    "mail.message.zoom_percent",
     "mail.showCondensedAddresses",
     "mailnews.display.disallow_mime_handlers",
     "mailnews.display.html_as",
@@ -443,6 +445,9 @@ var preferenceObserver = {
     } else if (data == "mail.dark-reader.enabled") {
       document.getElementById("disableDarkReader").checked =
         !Services.prefs.getBoolPref(data);
+    } else if (data == "mail.message.zoom_percent") {
+      top.ZoomManager.applyMessageZoom(getMessagePaneBrowser());
+      return;
     }
     timeoutReload();
   },

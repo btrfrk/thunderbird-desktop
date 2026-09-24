@@ -13,6 +13,7 @@ const { ensure_cards_view, prepare_thread_row_descendant_click } =
 const tabmail = document.getElementById("tabmail");
 const about3Pane = tabmail.currentAbout3Pane;
 const { threadTree } = about3Pane;
+let testFolder;
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
@@ -26,7 +27,7 @@ add_setup(async function () {
   const rootFolder = account.incomingServer.rootFolder.QueryInterface(
     Ci.nsIMsgLocalMailFolder
   );
-  const testFolder = rootFolder
+  testFolder = rootFolder
     .createLocalSubfolder("zoom")
     .QueryInterface(Ci.nsIMsgLocalMailFolder);
 
@@ -139,5 +140,101 @@ add_task(async function testToggleZoom() {
   Assert.equal(browser.textZoom, 1, "text zoom should be reset");
 
   top.ZoomManager.reset(browser);
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Tests that mail.message.zoom_percent sets the starting zoom of the 3-pane
+ * message pane, a message tab and a compose window, that the message tab
+ * keeps it when another message is displayed, and that the message pane
+ * follows changes to the pref.
+ */
+add_task(async function testDefaultMessageZoom() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["mail.message.zoom_percent", 150]],
+  });
+  const messages = [...testFolder.messages];
+
+  const threePaneTab = tabmail.openTab("mail3PaneTab", {
+    folderURI: testFolder.URI,
+    background: false,
+  });
+  await BrowserTestUtils.browserLoaded(threePaneTab.chromeBrowser);
+  const newAbout3Pane = threePaneTab.chromeBrowser.contentWindow;
+  await newAbout3Pane.hasDOMContentLoaded.promise;
+  const previewAboutMessage = newAbout3Pane.messageBrowser.contentWindow;
+  const previewPane = previewAboutMessage.getMessagePaneBrowser();
+  const previewLoaded = BrowserTestUtils.waitForEvent(
+    previewAboutMessage,
+    "MsgLoaded"
+  );
+  newAbout3Pane.messagePane.displayMessage(
+    messages[0].folder.getUriForMsg(messages[0])
+  );
+  await previewLoaded;
+  Assert.equal(
+    top.ZoomManager.getZoomForBrowser(previewPane),
+    1.5,
+    "3-pane message pane should start at the zoom level from the pref"
+  );
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["mail.message.zoom_percent", 200]],
+  });
+  Assert.equal(
+    top.ZoomManager.getZoomForBrowser(previewPane),
+    2,
+    "3-pane message pane should follow a change to the pref"
+  );
+  await SpecialPowers.popPrefEnv();
+  Assert.equal(
+    top.ZoomManager.getZoomForBrowser(previewPane),
+    1.5,
+    "3-pane message pane should follow the pref being restored"
+  );
+  tabmail.closeTab(threePaneTab);
+
+  const tab = window.OpenMessageInNewTab(messages[0], { background: false });
+  await BrowserTestUtils.waitForEvent(tab.chromeBrowser, "MsgLoaded");
+  const aboutMessage = tab.chromeBrowser.contentWindow;
+  const messagePane = aboutMessage.getMessagePaneBrowser();
+  Assert.equal(
+    top.ZoomManager.getZoomForBrowser(messagePane),
+    1.5,
+    "message tab should start at the zoom level from the pref"
+  );
+
+  const loadedPromise = BrowserTestUtils.waitForEvent(
+    tab.chromeBrowser,
+    "MsgLoaded"
+  );
+  aboutMessage.displayMessage(messages[1].folder.getUriForMsg(messages[1]));
+  await loadedPromise;
+  Assert.equal(
+    top.ZoomManager.getZoomForBrowser(messagePane),
+    1.5,
+    "zoom level should survive displaying another message"
+  );
+  tabmail.closeTab(tab);
+
+  const composePromise = BrowserTestUtils.domWindowOpenedAndLoaded(
+    null,
+    win =>
+      win.document.documentURI ==
+      "chrome://messenger/content/messengercompose/messengercompose.xhtml"
+  );
+  EventUtils.synthesizeKey("n", { accelKey: true });
+  const composeWindow = await composePromise;
+  await TestUtils.waitForCondition(
+    () => composeWindow.composeEditorReady,
+    "waiting for the compose editor to be ready"
+  );
+  Assert.equal(
+    composeWindow.ZoomManager.getZoomForBrowser(composeWindow.getBrowser()),
+    1.5,
+    "compose window should start at the zoom level from the pref"
+  );
+  await BrowserTestUtils.closeWindow(composeWindow);
+
   await SpecialPowers.popPrefEnv();
 });

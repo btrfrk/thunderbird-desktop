@@ -110,6 +110,21 @@ var ZoomManager = {
     this.setZoomForBrowser(browser, 1);
   },
 
+  /**
+   * Set the zoom of a message body browser to the level configured by the
+   * mail.message.zoom_percent pref.
+   *
+   * @param {MozBrowser|MozEditor} browser
+   */
+  applyMessageZoom(browser) {
+    const zoom =
+      Services.prefs.getIntPref("mail.message.zoom_percent", 100) / 100;
+    this.setZoomForBrowser(
+      browser,
+      Math.min(Math.max(zoom, this.MIN), this.MAX)
+    );
+  },
+
   toggleZoom(browser = getBrowser()) {
     const zoomLevel = this.getZoomForBrowser(browser);
 
